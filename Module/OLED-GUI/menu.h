@@ -10,6 +10,7 @@ typedef struct _menu_t{
     void (*action)(void *);
     void *property;
     uint8_t cursor_pos;
+    uint8_t oldsor_pos;
 } menu_t;
 void menu_init(void);
 #endif

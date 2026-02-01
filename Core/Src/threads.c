@@ -16,8 +16,6 @@
 #define EVENT_KEY_CONFIRM 0x08
 
 // static struct rt_event event_keyboard;
-uint32_t tx_power;
-uint32_t frequency;
 EventGroupHandle_t event_keyboard;
 
 void KEY_MENU_IRQ(Button *btn_handle) {
@@ -44,6 +42,8 @@ void KEY_CONFIRM_IRQ(Button *btn_handle) {
     // rt_event_send(&event_keyboard, EVENT_KEY_CONFIRM);
 }
 
+uint32_t radio_frequency = 866000000;
+int32_t radio_tx_power = 14;
 void radio_thread_entry(void *parameter) {
     // Radio thread implementation goes here
     while(1) {
@@ -83,12 +83,6 @@ extern menu_t main_menu;
 menu_t *current_menu;
 void disp_fresh_timeout(TimerHandle_t xTimer) {
     // Display refresh timeout handler implementation goes here
-    static uint8_t old_pos = 3;
-    if (old_pos != current_menu->cursor_pos) {
-        OLED_ReverseArea(0, old_pos * 16, 128, 16);
-        OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
-    }
-    old_pos = current_menu->cursor_pos;
     OLED_Update();
 }
 
@@ -96,17 +90,18 @@ void main_menu_action(void *param) {
     // Main menu action implementation goes here
     current_menu = &main_menu;
     EventBits_t event_recv = 0;
-    menu_t *temp_menu = current_menu->children;
     current_menu->cursor_pos = 0;
+    menu_t *temp_menu = current_menu->children;
+    for (int i = 0; temp_menu != NULL; i++) {
+        char row[17] = {0};
+        sprintf(row, "%-16s", temp_menu->title);
+        OLED_ShowString(0, i * 16, row, OLED_8X16);
+        if (temp_menu->next == NULL)
+            break;
+        temp_menu = temp_menu->next;
+    }
+    OLED_ReverseArea(0, 0, 128, 16);
     for (;;) {
-        for (int i = 0; temp_menu != NULL; i++) {
-            char row[16] = {0};
-            sprintf(row, "%-15s", temp_menu->title);
-            OLED_ShowString(0, i * 16, row, OLED_8X16);
-            if (temp_menu->next == NULL)
-                break;
-            temp_menu = temp_menu->next;
-        }
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
@@ -115,11 +110,17 @@ void main_menu_action(void *param) {
 
         } else if (event_recv & EVENT_KEY_UP) {
             if (current_menu->cursor_pos > 0) {
+                current_menu->oldsor_pos = current_menu->cursor_pos;
                 current_menu->cursor_pos--;
+                OLED_ReverseArea(0, current_menu->oldsor_pos * 16, 128, 16);
+                OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
             }
         } else if (event_recv & EVENT_KEY_DOWN) {
             if (current_menu->cursor_pos < 1) {
+                current_menu->oldsor_pos = current_menu->cursor_pos;
                 current_menu->cursor_pos++;
+                OLED_ReverseArea(0, current_menu->oldsor_pos * 16, 128, 16);
+                OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
             }
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             current_menu = current_menu->children;
@@ -127,6 +128,17 @@ void main_menu_action(void *param) {
                 current_menu = current_menu->next;
             }
             current_menu->action(NULL);
+            current_menu = current_menu->parent;
+            temp_menu = current_menu->children;
+            for (int i = 0; temp_menu != NULL; i++) {
+                char row[17] = {0};
+                sprintf(row, "%-16s", temp_menu->title);
+                OLED_ShowString(0, i * 16, row, OLED_8X16);
+                if (temp_menu->next == NULL)
+                    break;
+                temp_menu = temp_menu->next;
+            }
+            OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
         }
     }
 }
@@ -136,11 +148,11 @@ void freq_menu_action(void *param) {
     EventBits_t event_recv = 0;
     uint32_t freq_temp = *(uint32_t *)current_menu->property;
     for (;;) {
-        char freq_str[16] = {0};
-        sprintf(freq_str, "%-15s", "Frequency");
+        char freq_str[17] = {0};
+        sprintf(freq_str, "%-16s", "Frequency");
         OLED_ShowString(0, 0, freq_str, OLED_8X16);
         sprintf(freq_str, "%lu Hz", freq_temp);
-        OLED_ClearArea(0, 16, 128, 8);
+        OLED_ClearArea(0, 16, 128, 16);
         OLED_ShowString(0, 16, freq_str, OLED_8X16);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
@@ -166,12 +178,13 @@ void freq_menu_action(void *param) {
 void power_menu_action(void *param) {
     // Power menu action implementation goes here
     EventBits_t event_recv = 0;
-    uint32_t power_temp = *(uint32_t *)current_menu->property;
+    int32_t power_temp = *(int32_t *)current_menu->property;
     for (;;) {
-        char power_str[16] = {0};
-        sprintf(power_str, "%-15s", current_menu->title);
+        char power_str[17] = {0};
+        sprintf(power_str, "%-16s", current_menu->title);
         OLED_ShowString(0, 0, power_str, OLED_8X16);
-        sprintf(power_str, "%lu dBm", power_temp);
+        sprintf(power_str, "%ld dBm", power_temp);
+        OLED_ClearArea(0, 16, 128, 16);
         OLED_ShowString(0, 16, power_str, OLED_8X16);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
@@ -181,14 +194,14 @@ void power_menu_action(void *param) {
             return;
         } else if (event_recv & EVENT_KEY_UP) {
             power_temp += 1;
-            sprintf(power_str, "%lu dBm", power_temp);
+            sprintf(power_str, "%ld dBm", power_temp);
             OLED_ShowString(0, 16, power_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_DOWN) {
             power_temp -= 1;
-            sprintf(power_str, "%lu dBm", power_temp);
+            sprintf(power_str, "%ld dBm", power_temp);
             OLED_ShowString(0, 16, power_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_CONFIRM) {
-            *(uint32_t *)current_menu->property = power_temp;
+            *(int32_t *)current_menu->property = power_temp;
             return;
         }
     }

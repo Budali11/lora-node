@@ -5,10 +5,10 @@ menu_t main_menu;
 void main_menu_action(void *param);
 /* sub 1 menu */
 menu_t freq_menu;
-extern uint32_t frequency;
+extern uint32_t radio_frequency;
 void freq_menu_action(void *param);
 menu_t power_menu;
-extern uint32_t tx_power;
+extern uint32_t radio_tx_power;
 void power_menu_action(void *param);
 /* sub 2 menu */
 void menu_init(void) {
@@ -22,11 +22,11 @@ void menu_init(void) {
     freq_menu.children = NULL;
     freq_menu.next = &power_menu;
     freq_menu.action = freq_menu_action;
-    freq_menu.property = &frequency;
+    freq_menu.property = &radio_frequency;
     power_menu.title = "Power Setting";
     power_menu.parent = &main_menu;
     power_menu.children = NULL;
     power_menu.next = NULL;
     power_menu.action = power_menu_action;
-    power_menu.property = &tx_power;
+    power_menu.property = &radio_tx_power;
 }
