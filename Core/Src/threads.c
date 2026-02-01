@@ -3,6 +3,7 @@
 #include "main.h"
 #include "module_redirect.h"
 #include "multi_button.h"
+#include "portmacro.h"
 #include "projdefs.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -49,6 +50,11 @@ void radio_thread_entry(void *parameter) {
         vTaskDelay(1000);
     }
 }
+
+void button_timer_callback(TimerHandle_t xTimer) {
+    // Button tick handler implementation goes here
+    button_ticks();
+}
 void keyboard_thread_entry(void *parameter) {
     // Keyboard thread implementation goes here
     event_keyboard = xEventGroupCreate();
@@ -61,6 +67,9 @@ void keyboard_thread_entry(void *parameter) {
         button_start(&btns[i]);
         button_attach(&btns[i], BTN_SINGLE_CLICK, irq_handlers[i]);
     }
+    TimerHandle_t keyboard_timer =
+        xTimerCreate("keyboard timer", 5, pdTRUE, 0, button_timer_callback);
+    xTimerStart(keyboard_timer, 0);
     while (1) {
         vTaskDelay(1000);
     }
@@ -74,7 +83,12 @@ extern menu_t main_menu;
 menu_t *current_menu;
 void disp_fresh_timeout(TimerHandle_t xTimer) {
     // Display refresh timeout handler implementation goes here
-    OLED_ReverseArea(0, current_menu->cursor_pos * 8, 128, 16);
+    static uint8_t old_pos = 3;
+    if (old_pos != current_menu->cursor_pos) {
+        OLED_ReverseArea(0, old_pos * 16, 128, 16);
+        OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
+    }
+    old_pos = current_menu->cursor_pos;
     OLED_Update();
 }
 
@@ -83,16 +97,16 @@ void main_menu_action(void *param) {
     current_menu = &main_menu;
     EventBits_t event_recv = 0;
     menu_t *temp_menu = current_menu->children;
-    for (int i = 0; temp_menu != NULL; i++) {
-        char row[16] = {0};
-        sprintf(row, "%-15s", temp_menu->title);
-        OLED_ShowString(0, i * 16, row, OLED_8X16);
-        if (temp_menu->next == NULL)
-            break;
-        temp_menu = temp_menu->next;
-    }
     current_menu->cursor_pos = 0;
     for (;;) {
+        for (int i = 0; temp_menu != NULL; i++) {
+            char row[16] = {0};
+            sprintf(row, "%-15s", temp_menu->title);
+            OLED_ShowString(0, i * 16, row, OLED_8X16);
+            if (temp_menu->next == NULL)
+                break;
+            temp_menu = temp_menu->next;
+        }
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
@@ -121,9 +135,13 @@ void freq_menu_action(void *param) {
     // Frequency menu action implementation goes here
     EventBits_t event_recv = 0;
     uint32_t freq_temp = *(uint32_t *)current_menu->property;
-    char freq_str[16] = {0};
-    OLED_ShowString(0, 0, "Frequency", OLED_8X16);
     for (;;) {
+        char freq_str[16] = {0};
+        sprintf(freq_str, "%-15s", "Frequency");
+        OLED_ShowString(0, 0, freq_str, OLED_8X16);
+        sprintf(freq_str, "%lu Hz", freq_temp);
+        OLED_ClearArea(0, 16, 128, 8);
+        OLED_ShowString(0, 16, freq_str, OLED_8X16);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
@@ -149,8 +167,12 @@ void power_menu_action(void *param) {
     // Power menu action implementation goes here
     EventBits_t event_recv = 0;
     uint32_t power_temp = *(uint32_t *)current_menu->property;
-    char power_str[16] = {0};
     for (;;) {
+        char power_str[16] = {0};
+        sprintf(power_str, "%-15s", current_menu->title);
+        OLED_ShowString(0, 0, power_str, OLED_8X16);
+        sprintf(power_str, "%lu dBm", power_temp);
+        OLED_ShowString(0, 16, power_str, OLED_8X16);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
