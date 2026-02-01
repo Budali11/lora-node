@@ -1,0 +1,3 @@
+[submodule "Module/MultiButton"]
+	path = Module/MultiButton
+	url = https://github.com/0x1abin/MultiButton.git

@@ -1,0 +1,4 @@
+---
+# Disable all clang-tidy checks for this project (prevents unused-include and similar warnings)
+Checks: '-*'
+...
