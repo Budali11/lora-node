@@ -60,7 +60,7 @@ extern I2C_HandleTypeDef hi2c3;
     do {                \
         I2C_W_SDA(1);   \
         I2C_W_SCL(1);   \
-        osDelay(10);    \
+        vTaskDelay(2);    \
         I2C_W_SDA(0);   \
     } while (0)
 
@@ -68,19 +68,22 @@ extern I2C_HandleTypeDef hi2c3;
     do {                \
         I2C_W_SDA(0);   \
         I2C_W_SCL(1);   \
-        osDelay(10);    \
+        vTaskDelay(2);    \
         I2C_W_SDA(1);   \
     } while (0)
 
 #define I2C_Write_Byte(data)    \
     do {                     \
         for (int i = 0; i < 8; i++) { \
+            vTaskDelay(2);    \
             I2C_W_SCL(0);   \
+            vTaskDelay(2);    \
             if (((data) << i) & 0x80) { \
                 I2C_W_SDA(1); \
             } else {         \
                 I2C_W_SDA(0); \
-            }                \
+            }                   \
+            vTaskDelay(2);        \
             I2C_W_SCL(1);   \
         }                    \
         I2C_W_SCL(0);       \

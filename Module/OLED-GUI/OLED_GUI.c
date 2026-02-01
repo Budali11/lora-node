@@ -19,6 +19,7 @@
   */
 
 #include "OLED_GUI.h"
+#include <stdint.h>
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
@@ -83,7 +84,8 @@
 uint8_t OLED_DisplayBuf[4][128];
 
 /*********************全局变量*/
-
+static void OLED_WriteCommand(uint8_t Command);
+static void OLED_WritenData(uint8_t *Data, uint8_t Count);
 /**
   * 函    数：OLED初始化
   * 参    数：无
@@ -92,79 +94,80 @@ uint8_t OLED_DisplayBuf[4][128];
   */
 void OLED_Init(void)
 {
-    I2C_Write_Command(0xAE);
+    // OLED_WriteCommand(0xAE);
 
-    I2C_Write_Command(0x40);//---set low column address
-    I2C_Write_Command(0xB0);//---set high column address
+    // OLED_WriteCommand(0x40);//---set low column address
+    // OLED_WriteCommand(0xB0);//---set high column address
 
-    I2C_Write_Command(0xC8);//-not offset
+    // OLED_WriteCommand(0xC8);//-not offset
 
-    I2C_Write_Command(0x81);
-    I2C_Write_Command(0xff);
+    // OLED_WriteCommand(0x81);
+    // OLED_WriteCommand(0xff);
 
-    I2C_Write_Command(0xa1);
+    // OLED_WriteCommand(0xa1);
 
-    I2C_Write_Command(0xa6);
+    // OLED_WriteCommand(0xa6);
 
-    I2C_Write_Command(0xa8);
-    I2C_Write_Command(0x1f);
+    // OLED_WriteCommand(0xa8);
+    // OLED_WriteCommand(0x1f);
 
-    I2C_Write_Command(0xd3);
-    I2C_Write_Command(0x00);
+    // OLED_WriteCommand(0xd3);
+    // OLED_WriteCommand(0x00);
 
-    I2C_Write_Command(0xd5);
-    I2C_Write_Command(0xf0);
+    // OLED_WriteCommand(0xd5);
+    // OLED_WriteCommand(0xf0);
 
-    I2C_Write_Command(0xd9);
-    I2C_Write_Command(0x22);
+    // OLED_WriteCommand(0xd9);
+    // OLED_WriteCommand(0x22);
 
-    I2C_Write_Command(0xda);
-    I2C_Write_Command(0x02);
+    // OLED_WriteCommand(0xda);
+    // OLED_WriteCommand(0x02);
 
-    I2C_Write_Command(0xdb);
-    I2C_Write_Command(0x49);
+    // OLED_WriteCommand(0xdb);
+    // OLED_WriteCommand(0x49);
 
-    I2C_Write_Command(0x8d);
-    I2C_Write_Command(0x14);
+    // OLED_WriteCommand(0x8d);
+    // OLED_WriteCommand(0x14);
+    // OLED_WriteCommand(0xAF);
 	/*写入一系列的命令，对OLED进行初始化配置*/
-	// I2C_Write_Command(0xAE);	//设置显示开启/关闭，0xAE关闭，0xAF开启
+	OLED_WriteCommand(0xAE);	//设置显示开启/关闭，0xAE关闭，0xAF开启
 	
-	// I2C_Write_Command(0xD5);	//设置显示时钟分频比/振荡器频率
-	// I2C_Write_Command(0x80);	//0x00~0xFF
+	OLED_WriteCommand(0xD5);	//设置显示时钟分频比/振荡器频率
+	OLED_WriteCommand(0x80);	//0x00~0xFF
 	
-	// I2C_Write_Command(0xA8);	//设置多路复用率
-	// I2C_Write_Command(0x1F);	//0x0E~0x3F
+	OLED_WriteCommand(0xA8);	//设置多路复用率
+	OLED_WriteCommand(0x1F);	//0x0E~0x3F
 	
-	// I2C_Write_Command(0xD3);	//设置显示偏移
-	// I2C_Write_Command(0x00);	//0x00~0x7F
+	OLED_WriteCommand(0xD3);	//设置显示偏移
+	OLED_WriteCommand(0x00);	//0x00~0x7F
 	
-	// I2C_Write_Command(0x40);	//设置显示开始行，0x40~0x7F
-	// I2C_Write_Command(0xB0);	//
+	OLED_WriteCommand(0x40);	//设置显示开始行，0x40~0x7F
+	OLED_WriteCommand(0xB0);	//
 	
-	// I2C_Write_Command(0xA1);	//设置左右方向，0xA1正常，0xA0左右反置
+	OLED_WriteCommand(0xA1);	//设置左右方向，0xA1正常，0xA0左右反置
 	
-	// I2C_Write_Command(0xC8);	//设置上下方向，0xC8正常，0xC0上下反置
+	OLED_WriteCommand(0xC8);	//设置上下方向，0xC8正常，0xC0上下反置
 
-	// I2C_Write_Command(0xDA);	//设置COM引脚硬件配置
-	// I2C_Write_Command(0x02);
+	OLED_WriteCommand(0xDA);	//设置COM引脚硬件配置
+	OLED_WriteCommand(0x02);
 	
-	// I2C_Write_Command(0x81);	//设置对比度
-	// I2C_Write_Command(0xCF);	//0x00~0xFF
+	OLED_WriteCommand(0x81);	//设置对比度
+	OLED_WriteCommand(0xCF);	//0x00~0xFF
 
-	// I2C_Write_Command(0xD9);	//设置预充电周期
-	// I2C_Write_Command(0xF1);
+	OLED_WriteCommand(0xD9);	//设置预充电周期
+	OLED_WriteCommand(0xF1);
 
-	// I2C_Write_Command(0xDB);	//设置VCOMH取消选择级别
-	// I2C_Write_Command(0x30);
+	OLED_WriteCommand(0xDB);	//设置VCOMH取消选择级别
+	OLED_WriteCommand(0x30);
 
-	// I2C_Write_Command(0xA4);	//设置整个显示打开/关闭
+	OLED_WriteCommand(0xA4);	//设置整个显示打开/关闭
 
-	// I2C_Write_Command(0xA6);	//设置正常/反色显示，0xA6正常，0xA7反色
+	OLED_WriteCommand(0xA6);	//设置正常/反色显示，0xA6正常，0xA7反色
 
-	// I2C_Write_Command(0x8D);	//设置充电泵
-	// I2C_Write_Command(0x14);
+	OLED_WriteCommand(0x8D);	//设置充电泵
+	OLED_WriteCommand(0x14);
 
-	// I2C_Write_Command(0xAF);	//开启显示
+	OLED_WriteCommand(0xAF);	//开启显示
 	
 	OLED_Clear();				//清空显存数组
 	OLED_Update();				//更新显示，清屏，防止初始化后未显示内容时花屏
@@ -262,14 +265,14 @@ void OLED_I2C_SendByte(uint8_t Byte)
   * 参    数：Command 要写入的命令值，范围：0x00~0xFF
   * 返 回 值：无
   */
-// static void I2C_Write_Command(uint8_t Command)
-// {
-// 	OLED_I2C_Start();				//I2C起始
-// 	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
-// 	OLED_I2C_SendByte(0x00);		//控制字节，给0x00，表示即将写命令
-// 	OLED_I2C_SendByte(Command);		//写入指定的命令
-// 	OLED_I2C_Stop();				//I2C终止
-// }
+static void OLED_WriteCommand(uint8_t Command)
+{
+	OLED_I2C_Start();				//I2C起始
+	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
+	OLED_I2C_SendByte(0x00);		//控制字节，给0x00，表示即将写命令
+	OLED_I2C_SendByte(Command);		//写入指定的命令
+	OLED_I2C_Stop();				//I2C终止
+}
 
 /**
   * 函    数：OLED写数据
@@ -277,20 +280,20 @@ void OLED_I2C_SendByte(uint8_t Byte)
   * 参    数：Count 要写入数据的数量
   * 返 回 值：无
   */
-// static void I2C_Write_nData(uint8_t *Data, uint8_t Count)
-// {
-// 	uint8_t i;
-// 	
-// 	OLED_I2C_Start();				//I2C起始
-// 	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
-// 	OLED_I2C_SendByte(0x40);		//控制字节，给0x40，表示即将写数据
-// 	/*循环Count次，进行连续的数据写入*/
-// 	for (i = 0; i < Count; i ++)
-// 	{
-// 		OLED_I2C_SendByte(Data[i]);	//依次发送Data的每一个数据
-// 	}
-// 	OLED_I2C_Stop();				//I2C终止
-// }
+static void OLED_WritenData(uint8_t *Data, uint8_t Count)
+{
+	uint8_t i;
+	
+	OLED_I2C_Start();				//I2C起始
+	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
+	OLED_I2C_SendByte(0x40);		//控制字节，给0x40，表示即将写数据
+	/*循环Count次，进行连续的数据写入*/
+	for (i = 0; i < Count; i ++)
+	{
+		OLED_I2C_SendByte(Data[i]);	//依次发送Data的每一个数据
+	}
+	OLED_I2C_Stop();				//I2C终止
+}
 
 /*********************通信协议*/
 
@@ -310,9 +313,9 @@ void OLED_SetCursor(uint8_t Page, uint8_t X)
 //	X += 2;
 	
 	/*通过指令设置页地址和列地址*/
-	I2C_Write_Command(0xB0 | Page);					//设置页位置
-	I2C_Write_Command(0x10 | ((X & 0xF0) >> 4));	//设置X位置高4位
-	I2C_Write_Command(0x00 | (X & 0x0F));			//设置X位置低4位
+	OLED_WriteCommand(0xB0 | Page);					//设置页位置
+	OLED_WriteCommand(0x10 | ((X & 0xF0) >> 4));	//设置X位置高4位
+	OLED_WriteCommand(0x00 | (X & 0x0F));			//设置X位置低4位
 }
 
 /*********************硬件配置*/
@@ -415,7 +418,7 @@ void OLED_Update(void)
 		/*设置光标位置为每一页的第一列*/
 		OLED_SetCursor(j, 0);
 		/*连续写入128个数据，将显存数组的数据写入到OLED硬件*/
-		I2C_Write_nData(OLED_DisplayBuf[j], 128);
+		OLED_WritenData(OLED_DisplayBuf[j], 128);
 	}
 }
 
