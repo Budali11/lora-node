@@ -1,3 +1,4 @@
+#include "FreeRTOSConfig.h"
 #include "cmsis_os.h"
 #include "event_groups.h"
 #include "main.h"
@@ -8,7 +9,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "menu.h"
-
+#include "stm32l4xx_hal_conf.h"
+#include <stdbool.h>
 
 #define EVENT_KEY_MENU 0x01
 #define EVENT_KEY_UP 0x02
@@ -79,11 +81,137 @@ void keyboard_thread_entry(void *parameter) {
 #include "menu.h"
 // rt_timer_t disp_fresh_timer;
 extern uint8_t OLED_DisplayBuf[4][128];
+extern uint8_t line_selected[MAX_LINES]; 
 extern menu_t main_menu;
 menu_t *current_menu;
+
+void Update_Cursor(void) {
+    // cursor
+    configASSERT(current_menu != NULL);
+    if (current_menu->cursor_pos > current_menu->oldsor_pos) {
+        // moved down
+        if (current_menu->cursor_pos_page < MAX_LINES - 1) {
+            current_menu->cursor_pos_page++;
+        }
+    } else if (current_menu->cursor_pos < current_menu->oldsor_pos) {
+        // moved up
+        if (current_menu->cursor_pos_page > 0) {
+            current_menu->cursor_pos_page--;
+        }
+    }
+    if (line_selected[current_menu->cursor_pos_page] != 1) {
+        for (int i = 0; i < MAX_LINES; i++) {
+            if (line_selected[i] == 1) {
+                OLED_ReverseArea(0, i*16, 128, 16);
+                line_selected[i] = 0;
+                break;
+            }
+        }
+        OLED_ReverseArea(0, current_menu->cursor_pos_page*16, 128, 16);
+        line_selected[current_menu->cursor_pos_page] = 1;
+    }
+}
+
 void disp_fresh_timeout(TimerHandle_t xTimer) {
     // Display refresh timeout handler implementation goes here
     OLED_Update();
+}
+
+void Update_Menu_Display(menu_t *menu) {
+    // Update menu display implementation goes here
+    if (menu == NULL)
+        return;
+    menu_t *temp_menu = menu->children;
+    if (temp_menu == NULL) {
+        // this menu is a leaf node
+        temp_menu = menu;
+        char row[17] = {0};
+        sprintf(row, "%-16s", temp_menu->title);
+        OLED_ShowString(0, 0, row, OLED_8X16);
+        OLED_ClearArea(0, 16, 128, 16);
+        OLED_ShowString(0, 16, temp_menu->subtitle, OLED_8X16);
+        line_selected[0] = 0;
+        line_selected[1] = 0;
+    }
+    else {
+        menu_t *menu_list[MAX_LINES] = {0};
+        // gather menu items to display
+        if (menu->cursor_pos > menu->oldsor_pos 
+                && menu->cursor_pos_page < MAX_LINES - 1) {
+            // no need to scroll down
+            Update_Cursor();
+            return;
+        } else if (menu->cursor_pos < menu->oldsor_pos 
+                && menu->cursor_pos_page > 0) {
+            // no need to scroll up
+            Update_Cursor();
+            return;
+        } else if (menu->cursor_pos < menu->oldsor_pos && menu->cursor_pos_page == 0) {
+            // need to scroll up
+            for (int i = 0; i < MAX_LINES; i++) {
+                if (i + menu->cursor_pos < menu->item_count) {
+                    menu_list[i] = menu->children;
+                    for (int j = 0; j < i + menu->cursor_pos; j++) {
+                        menu_list[i] = menu_list[i]->next;
+                    }
+                } else {
+                    menu_list[i] = NULL;
+                }
+            }
+        } else if (menu->cursor_pos > menu->oldsor_pos && menu->cursor_pos_page == MAX_LINES - 1) {
+            // need to scroll down
+            for (int i = 0; i < MAX_LINES; i++) {
+                if (i + menu->cursor_pos - (MAX_LINES - 1) < menu->item_count) {
+                    menu_list[i] = menu->children;
+                    for (int j = 0; j < i + menu->cursor_pos - (MAX_LINES - 1); j++) {
+                        menu_list[i] = menu_list[i]->next;
+                    }
+                } else {
+                    menu_list[i] = NULL;
+                }
+            }
+        } else {
+            // first time display or no scrolling
+            if (!menu->first_display) {
+                return;
+            }
+            // cursor_pos should appear at cursor_pos_page
+            for (int i = 0; i < MAX_LINES; i++) {
+                if (i + menu->cursor_pos - menu->cursor_pos_page < menu->item_count) {
+                    menu_list[i] = menu->children;
+                    for (int j = 0; j < i + menu->cursor_pos - menu->cursor_pos_page; j++) {
+                        menu_list[i] = menu_list[i]->next;
+                    }
+                } else {
+                    menu_list[i] = NULL;
+                }
+            }
+            // for (int i = 0; i < MAX_LINES; i++) {
+            //     if (i < menu->item_count) {
+            //         menu_list[i] = menu->children;
+            //         for (int j = 0; j < i; j++) {
+            //             menu_list[i] = menu_list[i]->next;
+            //         }
+            //     } else {
+            //         menu_list[i] = NULL;
+            //     }
+            // }
+            menu->first_display = false;
+        }
+        
+        // display menu list
+        for (int i = 0; i < MAX_LINES; i++) {
+            char row[17] = {0};
+            if (menu_list[i] != NULL) {
+                sprintf(row, "%-16s", menu_list[i]->title);
+            } else {
+                sprintf(row, "                ");
+            }
+            OLED_ShowString(0, i * 16, row, OLED_8X16);
+            line_selected[i] = 0;
+        }
+        Update_Cursor();
+    }
 }
 
 void main_menu_action(void *param) {
@@ -91,36 +219,23 @@ void main_menu_action(void *param) {
     current_menu = &main_menu;
     EventBits_t event_recv = 0;
     current_menu->cursor_pos = 0;
-    menu_t *temp_menu = current_menu->children;
-    for (int i = 0; temp_menu != NULL; i++) {
-        char row[17] = {0};
-        sprintf(row, "%-16s", temp_menu->title);
-        OLED_ShowString(0, i * 16, row, OLED_8X16);
-        if (temp_menu->next == NULL)
-            break;
-        temp_menu = temp_menu->next;
-    }
-    OLED_ReverseArea(0, 0, 128, 16);
+    current_menu->cursor_pos_page = 0;
+    Update_Menu_Display(current_menu);
     for (;;) {
+        current_menu->oldsor_pos = current_menu->cursor_pos;
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
                                          pdTRUE, pdFALSE, portMAX_DELAY);
         if (event_recv & EVENT_KEY_MENU) {
-
+            current_menu->first_display = true;
         } else if (event_recv & EVENT_KEY_UP) {
             if (current_menu->cursor_pos > 0) {
-                current_menu->oldsor_pos = current_menu->cursor_pos;
                 current_menu->cursor_pos--;
-                OLED_ReverseArea(0, current_menu->oldsor_pos * 16, 128, 16);
-                OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
             }
         } else if (event_recv & EVENT_KEY_DOWN) {
-            if (current_menu->cursor_pos < 1) {
-                current_menu->oldsor_pos = current_menu->cursor_pos;
+            if (current_menu->cursor_pos < current_menu->item_count - 1) {
                 current_menu->cursor_pos++;
-                OLED_ReverseArea(0, current_menu->oldsor_pos * 16, 128, 16);
-                OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
             }
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             current_menu = current_menu->children;
@@ -129,17 +244,9 @@ void main_menu_action(void *param) {
             }
             current_menu->action(NULL);
             current_menu = current_menu->parent;
-            temp_menu = current_menu->children;
-            for (int i = 0; temp_menu != NULL; i++) {
-                char row[17] = {0};
-                sprintf(row, "%-16s", temp_menu->title);
-                OLED_ShowString(0, i * 16, row, OLED_8X16);
-                if (temp_menu->next == NULL)
-                    break;
-                temp_menu = temp_menu->next;
-            }
-            OLED_ReverseArea(0, current_menu->cursor_pos * 16, 128, 16);
+            current_menu->first_display = true;
         }
+        Update_Menu_Display(current_menu);
     }
 }
 
@@ -148,12 +255,8 @@ void freq_menu_action(void *param) {
     EventBits_t event_recv = 0;
     uint32_t freq_temp = *(uint32_t *)current_menu->property;
     for (;;) {
-        char freq_str[17] = {0};
-        sprintf(freq_str, "%-16s", "Frequency");
-        OLED_ShowString(0, 0, freq_str, OLED_8X16);
-        sprintf(freq_str, "%lu Hz", freq_temp);
-        OLED_ClearArea(0, 16, 128, 16);
-        OLED_ShowString(0, 16, freq_str, OLED_8X16);
+        sprintf(current_menu->subtitle, "%lu Hz", freq_temp);
+        Update_Menu_Display(current_menu);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
@@ -162,12 +265,8 @@ void freq_menu_action(void *param) {
             return;
         } else if (event_recv & EVENT_KEY_UP) {
             freq_temp += 125000;
-            sprintf(freq_str, "%lu Hz", freq_temp);
-            OLED_ShowString(0, 16, freq_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_DOWN) {
             freq_temp -= 125000;
-            sprintf(freq_str, "%lu Hz", freq_temp);
-            OLED_ShowString(0, 16, freq_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             *(uint32_t *)current_menu->property = freq_temp;
             return;
@@ -180,12 +279,8 @@ void power_menu_action(void *param) {
     EventBits_t event_recv = 0;
     int32_t power_temp = *(int32_t *)current_menu->property;
     for (;;) {
-        char power_str[17] = {0};
-        sprintf(power_str, "%-16s", current_menu->title);
-        OLED_ShowString(0, 0, power_str, OLED_8X16);
-        sprintf(power_str, "%ld dBm", power_temp);
-        OLED_ClearArea(0, 16, 128, 16);
-        OLED_ShowString(0, 16, power_str, OLED_8X16);
+        sprintf(current_menu->subtitle, "%ld dBm", power_temp);
+        Update_Menu_Display(current_menu);
         event_recv = xEventGroupWaitBits(event_keyboard,
                                          EVENT_KEY_MENU | EVENT_KEY_UP |
                                              EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
@@ -194,14 +289,33 @@ void power_menu_action(void *param) {
             return;
         } else if (event_recv & EVENT_KEY_UP) {
             power_temp += 1;
-            sprintf(power_str, "%ld dBm", power_temp);
-            OLED_ShowString(0, 16, power_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_DOWN) {
             power_temp -= 1;
-            sprintf(power_str, "%ld dBm", power_temp);
-            OLED_ShowString(0, 16, power_str, OLED_8X16);
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             *(int32_t *)current_menu->property = power_temp;
+            return;
+        }
+    }
+}
+
+void radio_menu_action(void *param) {
+    // Radio menu action implementation goes here
+    EventBits_t event_recv = 0;
+    for (;;) {
+        sprintf(current_menu->subtitle, "Press confirm");
+        Update_Menu_Display(current_menu);
+        event_recv = xEventGroupWaitBits(event_keyboard,
+                                         EVENT_KEY_MENU | EVENT_KEY_UP |
+                                             EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
+                                         pdTRUE, pdFALSE, portMAX_DELAY);
+        if (event_recv & EVENT_KEY_MENU) {
+            return;
+        } else if (event_recv & EVENT_KEY_UP) {
+
+        } else if (event_recv & EVENT_KEY_DOWN) {
+
+        } else if (event_recv & EVENT_KEY_CONFIRM) {
+            // emit a radio signal
             return;
         }
     }

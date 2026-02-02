@@ -14,6 +14,7 @@
 /*IsFilled参数数值*/
 #define OLED_UNFILLED			0
 #define OLED_FILLED				1
+#define MAX_LINES 2
 
 /*********************参数宏定义*/
 

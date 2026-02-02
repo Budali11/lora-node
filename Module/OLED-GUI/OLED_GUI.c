@@ -82,6 +82,7 @@
   * 才会将显存数组的数据发送到OLED硬件，进行显示
   */
 uint8_t OLED_DisplayBuf[4][128];
+uint8_t line_selected[MAX_LINES] = {0}; 
 
 /*********************全局变量*/
 static void OLED_WriteCommand(uint8_t Command);
