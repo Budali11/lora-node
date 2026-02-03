@@ -1,16 +1,16 @@
+#include <stdint.h>
+#include <stdio.h>
+#include <stdbool.h>
 #include "FreeRTOSConfig.h"
 #include "cmsis_os.h"
 #include "event_groups.h"
+#include "lr11xx_system_types.h"
 #include "main.h"
 #include "module_redirect.h"
 #include "multi_button.h"
 #include "portmacro.h"
 #include "projdefs.h"
-#include <stdint.h>
-#include <stdio.h>
 #include "menu.h"
-#include "stm32l4xx_hal_conf.h"
-#include <stdbool.h>
 
 #define EVENT_KEY_MENU 0x01
 #define EVENT_KEY_UP 0x02
@@ -42,15 +42,6 @@ void KEY_CONFIRM_IRQ(Button *btn_handle) {
     // Key confirm interrupt handler implementation goes here
     xEventGroupSetBits(event_keyboard, EVENT_KEY_CONFIRM);
     // rt_event_send(&event_keyboard, EVENT_KEY_CONFIRM);
-}
-
-uint32_t radio_frequency = 866000000;
-int32_t radio_tx_power = 14;
-void radio_thread_entry(void *parameter) {
-    // Radio thread implementation goes here
-    while(1) {
-        vTaskDelay(1000);
-    }
 }
 
 void button_timer_callback(TimerHandle_t xTimer) {
@@ -214,6 +205,7 @@ void Update_Menu_Display(menu_t *menu) {
     }
 }
 
+
 void main_menu_action(void *param) {
     // Main menu action implementation goes here
     current_menu = &main_menu;
@@ -250,6 +242,7 @@ void main_menu_action(void *param) {
     }
 }
 
+extern TaskHandle_t radio_task_handle;
 void freq_menu_action(void *param) {
     // Frequency menu action implementation goes here
     EventBits_t event_recv = 0;
@@ -269,6 +262,7 @@ void freq_menu_action(void *param) {
             freq_temp -= 125000;
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             *(uint32_t *)current_menu->property = freq_temp;
+            xTaskNotifyGive(radio_task_handle);
             return;
         }
     }
@@ -293,11 +287,13 @@ void power_menu_action(void *param) {
             power_temp -= 1;
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             *(int32_t *)current_menu->property = power_temp;
+            xTaskNotifyGive(radio_task_handle);
             return;
         }
     }
 }
 
+uint8_t tx_buffer[64];
 void radio_menu_action(void *param) {
     // Radio menu action implementation goes here
     EventBits_t event_recv = 0;
@@ -311,11 +307,10 @@ void radio_menu_action(void *param) {
         if (event_recv & EVENT_KEY_MENU) {
             return;
         } else if (event_recv & EVENT_KEY_UP) {
-
         } else if (event_recv & EVENT_KEY_DOWN) {
-
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             // emit a radio signal
+            
             return;
         }
     }
@@ -333,4 +328,40 @@ void disp_thread_entry(void *parameter) {
     // rt_timer_start(disp_fresh_timer);
     xTimerStart(disp_fresh_timer, 0);
     main_menu.action(NULL);
+}
+
+#include "lr11xx_radio.h"
+#include "lr1121_config.h"
+#include "lr11xx_hal.h"
+
+uint32_t radio_frequency = 866000000;
+int32_t radio_tx_power = 14;
+void radio_thread_entry(void *parameter) {
+    // Radio thread implementation goes here
+    lora_init_io_context(&lr1121);
+    lora_init_io(&lr1121);
+    lora_system_init( &lr1121 );
+
+    printf( "===== LR11xx Ping-Pong example =====\n\n" );
+    printf( "LR11XX driver version: %s\n", lr11xx_driver_version_get_version_string( ) );
+
+    lora_print_version( &lr1121 );
+    lora_radio_init( &lr1121 );
+
+    ASSERT_LR11XX_RC( lr11xx_system_set_dio_irq_params( &lr1121, LR11XX_SYSTEM_IRQ_TX_DONE, 0) );
+    ASSERT_LR11XX_RC( lr11xx_system_clear_irq_status( &lr1121, LR11XX_SYSTEM_IRQ_ALL_MASK ) );
+
+    memset( tx_buffer, 8, sizeof( tx_buffer ) );
+    while(1) {
+        ulTaskNotifyTake(0, portMAX_DELAY);
+        lora_radio_init( &lr1121 );
+    }
+}
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == DIO9_Pin)
+	{
+		irq_flag = true;
+	}
+
 }

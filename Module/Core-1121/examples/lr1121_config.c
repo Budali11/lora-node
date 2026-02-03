@@ -144,11 +144,13 @@ void lora_system_init( const void* context )
 }
 
 // Initialize the LR1121 radio module
+extern uint32_t radio_frequency;
+extern int32_t radio_tx_power;
 void lora_radio_init( const void* context )
 {
   // Retrieve the PA power configuration for the target frequency and power level
   const smtc_shield_lr11xx_pa_pwr_cfg_t* pa_pwr_cfg =
-        smtc_shield_lr1121mb1gis_get_pa_pwr_cfg( RF_FREQ_IN_HZ, TX_OUTPUT_POWER_DBM );
+        smtc_shield_lr1121mb1gis_get_pa_pwr_cfg( radio_frequency, radio_tx_power);
 
   if( pa_pwr_cfg == NULL )
   {
@@ -161,8 +163,8 @@ void lora_radio_init( const void* context )
   // Print common configuration parameters
   printf( "Common parameters:\n" );
   printf( "   Packet type   = %s\n", lr11xx_radio_pkt_type_to_str( PACKET_TYPE ) );
-  printf( "   RF frequency  = %lu Hz\n", RF_FREQ_IN_HZ );
-  printf( "   Output power  = %i dBm\n", TX_OUTPUT_POWER_DBM );
+  printf( "   RF frequency  = %lu Hz\n", radio_frequency );
+  printf( "   Output power  = %li dBm\n", radio_tx_power );
   printf( "   Fallback mode = %s\n", lr11xx_radio_fallback_modes_to_str( FALLBACK_MODE ) );
   printf( ( ENABLE_RX_BOOST_MODE == true ) ? "   Rx boost activated\n" : "   Rx boost deactivated\n" );
   printf( "\n" );

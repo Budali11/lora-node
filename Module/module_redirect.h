@@ -41,7 +41,7 @@ extern I2C_HandleTypeDef hi2c3;
     HAL_SPI_Transmit(&hspi1, tx_buf, length, HAL_MAX_DELAY)
 
 #define DEV_SPI_Read_Bytes(rx_buf, length) \
-    HAL_SPI_Receive(&hspi1, rx_buf, length, 0xffff)
+    HAL_SPI_Receive(&hspi1, rx_buf, length, HAL_MAX_DELAY)
 
 #define DEV_Delay_ms(ms) \
     HAL_Delay(ms)

@@ -52,9 +52,9 @@ const osThreadAttr_t defaultTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
-osThreadId_t radio_task_handle;
-osThreadId_t keyboard_task_handle;
-osThreadId_t disp_task_handle;
+TaskHandle_t radio_task_handle;
+TaskHandle_t keyboard_task_handle;
+TaskHandle_t disp_task_handle;
 osThreadAttr_t radio_task_attributes = {
     .name = "radio_task",
     .stack_size = 1024,
@@ -355,9 +355,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(RESET_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : KEY_DOWN_Pin BUSY_Pin KEY_UP_Pin KEY_MENU_Pin
-                           DIO8_Pin DIO9_Pin */
+                           DIO8_Pin */
   GPIO_InitStruct.Pin = KEY_DOWN_Pin|BUSY_Pin|KEY_UP_Pin|KEY_MENU_Pin
-                          |DIO8_Pin|DIO9_Pin;
+                          |DIO8_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -381,13 +381,33 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(CS_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : DIO9_Pin */
+  GPIO_InitStruct.Pin = DIO9_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(DIO9_GPIO_Port, &GPIO_InitStruct);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif
 
+PUTCHAR_PROTOTYPE
+{
+	if (ch == '\n') {
+		char cr = '\r';
+		HAL_UART_Transmit(&huart2, (uint8_t *)&cr, 1, HAL_MAX_DELAY);
+	}
+	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+	return ch;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
