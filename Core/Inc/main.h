@@ -92,6 +92,7 @@ void disp_thread_entry(void *parameter);
 #define DIO8_GPIO_Port GPIOB
 #define DIO9_Pin GPIO_PIN_9
 #define DIO9_GPIO_Port GPIOB
+#define DIO9_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
 

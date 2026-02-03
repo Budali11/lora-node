@@ -1,9 +1,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "FreeRTOSConfig.h"
 #include "cmsis_os.h"
 #include "event_groups.h"
+#include "lr1121_common.h"
+#include "lr11xx_radio_types.h"
+#include "lr11xx_regmem.h"
+#include "lr11xx_system.h"
 #include "lr11xx_system_types.h"
 #include "main.h"
 #include "module_redirect.h"
@@ -177,16 +182,6 @@ void Update_Menu_Display(menu_t *menu) {
                     menu_list[i] = NULL;
                 }
             }
-            // for (int i = 0; i < MAX_LINES; i++) {
-            //     if (i < menu->item_count) {
-            //         menu_list[i] = menu->children;
-            //         for (int j = 0; j < i; j++) {
-            //             menu_list[i] = menu_list[i]->next;
-            //         }
-            //     } else {
-            //         menu_list[i] = NULL;
-            //     }
-            // }
             menu->first_display = false;
         }
         
@@ -293,29 +288,6 @@ void power_menu_action(void *param) {
     }
 }
 
-uint8_t tx_buffer[64];
-void radio_menu_action(void *param) {
-    // Radio menu action implementation goes here
-    EventBits_t event_recv = 0;
-    for (;;) {
-        sprintf(current_menu->subtitle, "Press confirm");
-        Update_Menu_Display(current_menu);
-        event_recv = xEventGroupWaitBits(event_keyboard,
-                                         EVENT_KEY_MENU | EVENT_KEY_UP |
-                                             EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
-                                         pdTRUE, pdFALSE, portMAX_DELAY);
-        if (event_recv & EVENT_KEY_MENU) {
-            return;
-        } else if (event_recv & EVENT_KEY_UP) {
-        } else if (event_recv & EVENT_KEY_DOWN) {
-        } else if (event_recv & EVENT_KEY_CONFIRM) {
-            // emit a radio signal
-            
-            return;
-        }
-    }
-}
-
 void disp_thread_entry(void *parameter) {
     // Display thread implementation goes here
     menu_init();
@@ -334,34 +306,167 @@ void disp_thread_entry(void *parameter) {
 #include "lr1121_config.h"
 #include "lr11xx_hal.h"
 
-uint32_t radio_frequency = 866000000;
-int32_t radio_tx_power = 14;
+#define BUFFER_SIZE 64
+#define LORA_SF LR11XX_RADIO_LORA_SF12 
+#define LORA_BW LR11XX_RADIO_LORA_BW_125
+#define IRQ_MASK                                                                          \
+    ( LR11XX_SYSTEM_IRQ_TX_DONE | LR11XX_SYSTEM_IRQ_RX_DONE | LR11XX_SYSTEM_IRQ_TIMEOUT | \
+      LR11XX_SYSTEM_IRQ_HEADER_ERROR | LR11XX_SYSTEM_IRQ_CRC_ERROR | LR11XX_SYSTEM_IRQ_FSK_LEN_ERROR )
+uint32_t radio_frequency = 868000000;
+int32_t radio_tx_power = 17;
+uint8_t tx_buffer[BUFFER_SIZE];
+lr11xx_radio_pkt_params_lora_t radio_pkt_param = {
+    .preamble_len_in_symb = LORA_PREAMBLE_LENGTH,
+    .header_type = LORA_PKT_LEN_MODE,
+    .pld_len_in_bytes = BUFFER_SIZE,
+    .crc = LR11XX_RADIO_LORA_CRC_OFF,
+    .iq = LORA_IQ
+};
+lr11xx_radio_mod_params_lora_t radio_mod_param = {
+    .sf = LORA_SF,
+    .bw = LORA_BW,
+    .cr = LR11XX_RADIO_LORA_CR_4_5,
+    .ldro = 0
+};
+extern TaskHandle_t disp_task_handle;
+void lora_irq_process( const void* context, lr11xx_system_irq_mask_t irq_filter_mask );
 void radio_thread_entry(void *parameter) {
     // Radio thread implementation goes here
     lora_init_io_context(&lr1121);
     lora_init_io(&lr1121);
     lora_system_init( &lr1121 );
-
     printf( "===== LR11xx Ping-Pong example =====\n\n" );
     printf( "LR11XX driver version: %s\n", lr11xx_driver_version_get_version_string( ) );
 
     lora_print_version( &lr1121 );
     lora_radio_init( &lr1121 );
+    radio_mod_param.ldro = smtc_shield_lr11xx_common_compute_lora_ldro(LORA_SF, LORA_BW);
+    lr11xx_radio_set_lora_mod_params(&lr1121, &radio_mod_param);
+    lr11xx_radio_set_lora_pkt_params(&lr1121, &radio_pkt_param);
+    lr11xx_radio_set_lora_sync_word(&lr1121, LORA_SYNCWORD);
 
-    ASSERT_LR11XX_RC( lr11xx_system_set_dio_irq_params( &lr1121, LR11XX_SYSTEM_IRQ_TX_DONE, 0) );
+    ASSERT_LR11XX_RC( lr11xx_system_set_dio_irq_params( &lr1121, IRQ_MASK, 0) );
     ASSERT_LR11XX_RC( lr11xx_system_clear_irq_status( &lr1121, LR11XX_SYSTEM_IRQ_ALL_MASK ) );
 
     memset( tx_buffer, 8, sizeof( tx_buffer ) );
+    const smtc_shield_lr11xx_pa_pwr_cfg_t* pa_pwr_cfg;
+    xTaskNotify(disp_task_handle, 0x02, eSetBits);
     while(1) {
-        ulTaskNotifyTake(0, portMAX_DELAY);
-        lora_radio_init( &lr1121 );
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        // // Set the RF frequency
+        // lr11xx_radio_set_rf_freq(&lr1121, radio_frequency);
+
+        // // Configure the PA settings
+        // pa_pwr_cfg = smtc_shield_lr1121mb1gis_get_pa_pwr_cfg( radio_frequency, radio_tx_power);
+        // lr11xx_radio_set_pa_cfg(&lr1121, &( pa_pwr_cfg->pa_config ) );
     }
 }
+
+extern TaskHandle_t disp_task_handle;
+void radio_menu_action(void *param) {
+    // Radio menu action implementation goes here
+    static bool first_enter = true;
+    EventBits_t event_recv = 0;
+    uint32_t note = 0;
+    if (first_enter) {
+        xTaskNotifyWait(0, 0x02, &note, 5);
+        if ((note & 0x02) == 0) {
+            sprintf(current_menu->subtitle, "init-ing radio..");
+            Update_Menu_Display(current_menu);
+            event_recv = xEventGroupWaitBits(event_keyboard,
+                                             EVENT_KEY_MENU | EVENT_KEY_UP |
+                                                 EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
+                                             pdTRUE, pdFALSE, portMAX_DELAY);
+            return;
+        }
+        first_enter = false;
+    }
+    sprintf(current_menu->subtitle, "Press confirm");
+    Update_Menu_Display(current_menu);
+    for (;;) {
+        event_recv = xEventGroupWaitBits(event_keyboard,
+                                         EVENT_KEY_MENU | EVENT_KEY_UP |
+                                             EVENT_KEY_DOWN | EVENT_KEY_CONFIRM,
+                                         pdTRUE, pdFALSE, portMAX_DELAY);
+        if (event_recv & EVENT_KEY_MENU) {
+            return;
+        } else if (event_recv & EVENT_KEY_UP) {
+        } else if (event_recv & EVENT_KEY_DOWN) {
+        } else if (event_recv & EVENT_KEY_CONFIRM) {
+            // emit a radio signal
+            sprintf(current_menu->subtitle, "Wait... ");
+            Update_Menu_Display(current_menu);
+            lr11xx_regmem_write_buffer8(&lr1121, tx_buffer, BUFFER_SIZE);
+            ASSERT_LR11XX_RC(lr11xx_system_clear_irq_status(&lr1121, LR11XX_SYSTEM_IRQ_ALL_MASK));
+            ASSERT_LR11XX_RC(lr11xx_radio_set_tx(&lr1121, 0));
+            xTaskNotifyWait(0, 0x01, &note, portMAX_DELAY);
+            if ((note & 0x1) == 0) {
+                printf("no notification was receive\r\n");
+            } 
+            lora_irq_process(&lr1121, IRQ_MASK);
+            sprintf(current_menu->subtitle, "Ready emit again");
+            Update_Menu_Display(current_menu);
+            return;
+        }
+    }
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == DIO9_Pin)
 	{
-		irq_flag = true;
+        printf("int.\r\n");
+        xTaskNotifyFromISR(disp_task_handle, 0x01, eSetBits, NULL);
 	}
+
+}
+
+void lora_irq_process( const void* context, lr11xx_system_irq_mask_t irq_filter_mask )
+{
+
+    irq_flag = false;
+
+    lr11xx_system_irq_mask_t irq_regs;
+    lr11xx_system_get_and_clear_irq_status( context, &irq_regs );
+
+    printf( "Interrupt flags = 0x%08lX\n", irq_regs );
+
+    irq_regs &= irq_filter_mask;
+
+    printf( "Interrupt flags (after filtering) = 0x%08lX\n", irq_regs );
+
+    if( ( irq_regs & LR11XX_SYSTEM_IRQ_TX_DONE ) == LR11XX_SYSTEM_IRQ_TX_DONE )
+    {
+        printf( "Tx done\n" );
+    }
+
+
+    if( ( irq_regs & LR11XX_SYSTEM_IRQ_HEADER_ERROR ) == LR11XX_SYSTEM_IRQ_HEADER_ERROR )
+    {
+        printf( "Header error\n" );
+    }
+
+    if( ( irq_regs & LR11XX_SYSTEM_IRQ_RX_DONE ) == LR11XX_SYSTEM_IRQ_RX_DONE )
+    {
+        if( ( irq_regs & LR11XX_SYSTEM_IRQ_CRC_ERROR ) == LR11XX_SYSTEM_IRQ_CRC_ERROR )
+        {
+            printf( "CRC error\n" );
+        }
+        else if( ( irq_regs & LR11XX_SYSTEM_IRQ_FSK_LEN_ERROR ) == LR11XX_SYSTEM_IRQ_FSK_LEN_ERROR )
+        {
+            printf( "FSK length error\n" );
+        }
+        else
+        {
+            printf( "Rx done\n" );
+        }
+    }
+
+    if( ( irq_regs & LR11XX_SYSTEM_IRQ_TIMEOUT ) == LR11XX_SYSTEM_IRQ_TIMEOUT )
+    {
+        printf( "Rx timeout\n" );
+    }
+
+    printf( "\n" );
 
 }

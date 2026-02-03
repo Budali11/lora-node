@@ -188,10 +188,10 @@ void lora_radio_init( const void* context )
     printf("spi_check_err:%d\r\n", spi_check);
 
   // Set the RF frequency
-  lr11xx_radio_set_rf_freq( context, RF_FREQ_IN_HZ );
+  lr11xx_radio_set_rf_freq( context, radio_frequency);
 
   // Set the RSSI calibration table
-  lr11xx_radio_set_rssi_calibration(context, smtc_shield_lr11xx_get_rssi_calibration_table( RF_FREQ_IN_HZ ));
+  lr11xx_radio_set_rssi_calibration(context, smtc_shield_lr11xx_get_rssi_calibration_table( radio_frequency ));
 
   // Configure the PA settings
   lr11xx_radio_set_pa_cfg( context, &( pa_pwr_cfg->pa_config ) );
@@ -205,57 +205,57 @@ void lora_radio_init( const void* context )
   lr11xx_radio_cfg_rx_boosted( context, ENABLE_RX_BOOST_MODE );
 
   // Configure LoRa or GFSK parameters based on the packet type
-  if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_LORA )
-  {
-    print_lora_configuration( );
-    lora_mod_params.ldro = smtc_shield_lr11xx_common_compute_lora_ldro( LORA_SPREADING_FACTOR, LORA_BANDWIDTH );
-    lr11xx_radio_set_lora_mod_params( context, &lora_mod_params );
-    lr11xx_radio_set_lora_pkt_params( context, &lora_pkt_params );
-    lr11xx_radio_set_lora_sync_word( context, LORA_SYNCWORD );
-  }
-  // Configure the radio for GFSK modulation
-  else if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_GFSK )
-  {
-      // Print the current GFSK configuration
-      print_gfsk_configuration( );
+  // if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_LORA )
+  // {
+  //   print_lora_configuration( );
+  //   lora_mod_params.ldro = smtc_shield_lr11xx_common_compute_lora_ldro( LORA_SPREADING_FACTOR, LORA_BANDWIDTH );
+  //   lr11xx_radio_set_lora_mod_params( context, &lora_mod_params );
+  //   lr11xx_radio_set_lora_pkt_params( context, &lora_pkt_params );
+  //   lr11xx_radio_set_lora_sync_word( context, LORA_SYNCWORD );
+  // }
+  // // Configure the radio for GFSK modulation
+  // else if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_GFSK )
+  // {
+  //     // Print the current GFSK configuration
+  //     print_gfsk_configuration( );
 
-      // Set the GFSK modulation parameters
-      lr11xx_radio_set_gfsk_mod_params( context, &gfsk_mod_params );
-      // Set the GFSK packet parameters
-      lr11xx_radio_set_gfsk_pkt_params( context, &gfsk_pkt_params );
-      // Set the GFSK sync word
-      lr11xx_radio_set_gfsk_sync_word( context, gfsk_sync_word );
+  //     // Set the GFSK modulation parameters
+  //     lr11xx_radio_set_gfsk_mod_params( context, &gfsk_mod_params );
+  //     // Set the GFSK packet parameters
+  //     lr11xx_radio_set_gfsk_pkt_params( context, &gfsk_pkt_params );
+  //     // Set the GFSK sync word
+  //     lr11xx_radio_set_gfsk_sync_word( context, gfsk_sync_word );
 
-      // If DC-free encoding is enabled, set the whitening seed
-      if( FSK_DC_FREE != LR11XX_RADIO_GFSK_DC_FREE_OFF )
-      {
-          lr11xx_radio_set_gfsk_whitening_seed( context, FSK_WHITENING_SEED );
-      }
+  //     // If DC-free encoding is enabled, set the whitening seed
+  //     if( FSK_DC_FREE != LR11XX_RADIO_GFSK_DC_FREE_OFF )
+  //     {
+  //         lr11xx_radio_set_gfsk_whitening_seed( context, FSK_WHITENING_SEED );
+  //     }
 
-      // If CRC is enabled, set the CRC parameters
-      if( FSK_CRC_TYPE != LR11XX_RADIO_GFSK_CRC_OFF )
-      {
-          lr11xx_radio_set_gfsk_crc_params( context, FSK_CRC_SEED, FSK_CRC_POLYNOMIAL );
-      }
+  //     // If CRC is enabled, set the CRC parameters
+  //     if( FSK_CRC_TYPE != LR11XX_RADIO_GFSK_CRC_OFF )
+  //     {
+  //         lr11xx_radio_set_gfsk_crc_params( context, FSK_CRC_SEED, FSK_CRC_POLYNOMIAL );
+  //     }
 
-      // If address filtering is enabled, set the packet address
-      if( FSK_ADDRESS_FILTERING != LR11XX_RADIO_GFSK_ADDRESS_FILTERING_DISABLE )
-      {
-          lr11xx_radio_set_pkt_address( context, FSK_NODE_ADDRESS, FSK_BROADCAST_ADDRESS );
-      }
-  }
-  // Configure the radio for LR-FHSS modulation
-  else if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_LR_FHSS )
-  {
-      // Define the LR-FHSS modulation parameters
-      const lr11xx_radio_mod_params_lr_fhss_t mod_lr_fhss = {
-          .br_in_bps   = LR11XX_RADIO_LR_FHSS_BITRATE_488_BPS, // Bitrate in bps
-          .pulse_shape = LR11XX_RADIO_LR_FHSS_PULSE_SHAPE_BT_1, // Pulse shape
-      };
+  //     // If address filtering is enabled, set the packet address
+  //     if( FSK_ADDRESS_FILTERING != LR11XX_RADIO_GFSK_ADDRESS_FILTERING_DISABLE )
+  //     {
+  //         lr11xx_radio_set_pkt_address( context, FSK_NODE_ADDRESS, FSK_BROADCAST_ADDRESS );
+  //     }
+  // }
+  // // Configure the radio for LR-FHSS modulation
+  // else if( PACKET_TYPE == LR11XX_RADIO_PKT_TYPE_LR_FHSS )
+  // {
+  //     // Define the LR-FHSS modulation parameters
+  //     const lr11xx_radio_mod_params_lr_fhss_t mod_lr_fhss = {
+  //         .br_in_bps   = LR11XX_RADIO_LR_FHSS_BITRATE_488_BPS, // Bitrate in bps
+  //         .pulse_shape = LR11XX_RADIO_LR_FHSS_PULSE_SHAPE_BT_1, // Pulse shape
+  //     };
 
-      // Set the LR-FHSS modulation parameters
-      lr11xx_radio_set_lr_fhss_mod_params( context, &mod_lr_fhss );
-  }
+  //     // Set the LR-FHSS modulation parameters
+  //     lr11xx_radio_set_lr_fhss_mod_params( context, &mod_lr_fhss );
+  // }
 }
 
 void lora_radio_dbpsk_init( const void* context, const uint8_t payload_len )
