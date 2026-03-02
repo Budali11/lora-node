@@ -169,18 +169,6 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-    // rt_thread_t radio_thread =
-    //     rt_thread_create("radio", radio_thread_entry, RT_NULL, 1024, 20, 10);
-    // if (radio_thread != RT_NULL)
-    //     rt_thread_startup(radio_thread);
-    // rt_thread_t keyboard_thread = rt_thread_create(
-    //     "keyboard", keyboard_thread_entry, RT_NULL, 1024, 10, 10);
-    // if (keyboard_thread != RT_NULL)
-    //     rt_thread_startup(keyboard_thread);
-    // rt_thread_t disp_thread =
-    //     rt_thread_create("disp", disp_thread_entry, RT_NULL, 1024, 25, 10);
-    // if (disp_thread != RT_NULL)
-    //     rt_thread_startup(disp_thread);
     while (1) {
     /* USER CODE END WHILE */
 

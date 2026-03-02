@@ -353,12 +353,12 @@ void radio_thread_entry(void *parameter) {
     xTaskNotify(disp_task_handle, 0x02, eSetBits);
     while(1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        // // Set the RF frequency
-        // lr11xx_radio_set_rf_freq(&lr1121, radio_frequency);
+        // Set the RF frequency
+        lr11xx_radio_set_rf_freq(&lr1121, radio_frequency);
 
-        // // Configure the PA settings
-        // pa_pwr_cfg = smtc_shield_lr1121mb1gis_get_pa_pwr_cfg( radio_frequency, radio_tx_power);
-        // lr11xx_radio_set_pa_cfg(&lr1121, &( pa_pwr_cfg->pa_config ) );
+        // Configure the PA settings
+        pa_pwr_cfg = smtc_shield_lr1121mb1gis_get_pa_pwr_cfg( radio_frequency, radio_tx_power);
+        lr11xx_radio_set_pa_cfg(&lr1121, &( pa_pwr_cfg->pa_config ) );
     }
 }
 
@@ -406,7 +406,6 @@ void radio_menu_action(void *param) {
             lora_irq_process(&lr1121, IRQ_MASK);
             sprintf(current_menu->subtitle, "Ready emit again");
             Update_Menu_Display(current_menu);
-            return;
         }
     }
 }
