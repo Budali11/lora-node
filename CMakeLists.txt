@@ -44,6 +44,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add sources to executable
 file(GLOB_RECURSE USER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Module/PhaseLoRa/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/Core-1121/lr1121/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/Core-1121/lr1121/lr11xx_driver/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/Core-1121/lr1121/lr1121_common/*.c
@@ -71,6 +72,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/
+    ${CMAKE_CURRENT_SOURCE_DIR}/Module/PhaseLoRa/
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/MultiButton/
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/OLED-GUI/
     ${CMAKE_CURRENT_SOURCE_DIR}/Module/Core-1121/lr1121/

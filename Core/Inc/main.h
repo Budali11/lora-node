@@ -36,7 +36,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+extern TIM_HandleTypeDef htim4;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -56,7 +56,7 @@ void Error_Handler(void);
 void radio_thread_entry(void *parameter);
 void keyboard_thread_entry(void *parameter);
 void disp_thread_entry(void *parameter);
-
+void Delayus_Using_TIM(uint32_t us);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

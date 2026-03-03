@@ -16,6 +16,7 @@
 #include "portmacro.h"
 #include "projdefs.h"
 #include "menu.h"
+#include "stm32l4xx_hal_tim.h"
 
 #define EVENT_KEY_MENU 0x01
 #define EVENT_KEY_UP 0x02
@@ -305,6 +306,7 @@ void disp_thread_entry(void *parameter) {
 #include "lr11xx_radio.h"
 #include "lr1121_config.h"
 #include "lr11xx_hal.h"
+#include "PhaseLoRa.h"
 
 #define BUFFER_SIZE 64
 #define LORA_SF LR11XX_RADIO_LORA_SF12 
@@ -312,7 +314,7 @@ void disp_thread_entry(void *parameter) {
 #define IRQ_MASK                                                                          \
     ( LR11XX_SYSTEM_IRQ_TX_DONE | LR11XX_SYSTEM_IRQ_RX_DONE | LR11XX_SYSTEM_IRQ_TIMEOUT | \
       LR11XX_SYSTEM_IRQ_HEADER_ERROR | LR11XX_SYSTEM_IRQ_CRC_ERROR | LR11XX_SYSTEM_IRQ_FSK_LEN_ERROR )
-uint32_t radio_frequency = 868000000;
+uint32_t radio_frequency = 866000000;
 int32_t radio_tx_power = 17;
 uint8_t tx_buffer[BUFFER_SIZE];
 lr11xx_radio_pkt_params_lora_t radio_pkt_param = {
@@ -330,7 +332,11 @@ lr11xx_radio_mod_params_lora_t radio_mod_param = {
 };
 extern TaskHandle_t disp_task_handle;
 void lora_irq_process( const void* context, lr11xx_system_irq_mask_t irq_filter_mask );
+TimerHandle_t ant_flipper_timer;
 void radio_thread_entry(void *parameter) {
+    /* PhaseLoRa init */
+    // ant_flipper_timer = xTimerCreate("ant flipper", 8, pdTRUE, 0, Antenna_Phase_Flip);
+
     // Radio thread implementation goes here
     lora_init_io_context(&lr1121);
     lora_init_io(&lr1121);
@@ -363,6 +369,12 @@ void radio_thread_entry(void *parameter) {
 }
 
 extern TaskHandle_t disp_task_handle;
+uint16_t seq_len;
+uint16_t seq_idx;
+char sec_data[] = {"Hello World!"};
+uint8_t H_size = 4;
+uint8_t *ant_sw_seq = NULL;
+
 void radio_menu_action(void *param) {
     // Radio menu action implementation goes here
     static bool first_enter = true;
@@ -394,11 +406,20 @@ void radio_menu_action(void *param) {
         } else if (event_recv & EVENT_KEY_DOWN) {
         } else if (event_recv & EVENT_KEY_CONFIRM) {
             // emit a radio signal
+            sprintf(current_menu->subtitle, "Calculating..");
+            Update_Menu_Display(current_menu);
+            seq_len = Antenna_Switch_Sequence_Generation((uint8_t *)sec_data, strlen(sec_data), H_size, 8, &ant_sw_seq);
+
             sprintf(current_menu->subtitle, "Wait... ");
             Update_Menu_Display(current_menu);
             lr11xx_regmem_write_buffer8(&lr1121, tx_buffer, BUFFER_SIZE);
             ASSERT_LR11XX_RC(lr11xx_system_clear_irq_status(&lr1121, LR11XX_SYSTEM_IRQ_ALL_MASK));
             ASSERT_LR11XX_RC(lr11xx_radio_set_tx(&lr1121, 0));
+
+            taskENTER_CRITICAL();
+            Delayus_Using_TIM(404275);
+            HAL_TIM_Base_Start_IT(&htim4);
+            taskEXIT_CRITICAL();
             xTaskNotifyWait(0, 0x01, &note, portMAX_DELAY);
             if ((note & 0x1) == 0) {
                 printf("no notification was receive\r\n");
