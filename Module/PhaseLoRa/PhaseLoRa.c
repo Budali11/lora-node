@@ -30,6 +30,78 @@ void Antenna_Phase_Flip(void) {
     }
 }
 
+/**
+ * @brief 对 uint8_t 数组进行 Hamming(7,4) 编码
+ *
+ * 将输入数据按 4 bits（nibble）为一组，对每个 nibble 进行 Hamming(7,4)
+ * 编码，编码后每 4 个数据位扩展为 7 位（3 个校验位 + 4 个数据位）。
+ * 编码后的比特流按大端序（MSB first）紧密排列写入输出缓冲区。
+ *
+ * 编码规则（Hamming(7,4)），码字 bit 位置 1-7：
+ *   [p1, p2, d1, p3, d2, d3, d4]
+ *   p1 = d1 ^ d2 ^ d4  （覆盖位置 1,3,5,7）
+ *   p2 = d1 ^ d3 ^ d4  （覆盖位置 2,3,6,7）
+ *   p3 = d2 ^ d3 ^ d4  （覆盖位置 4,5,6,7）
+ *
+ * 输出缓冲区所需字节数：HAMMING74_OUTPUT_SIZE(num_bytes)
+ *
+ * @param input      输入数据数组（不可为 NULL）
+ * @param num_bytes  输入数据字节数
+ * @param output     输出缓冲区（不可为 NULL，大小须 >= HAMMING74_OUTPUT_SIZE(num_bytes)）
+ * @return uint16_t  输出数据的字节数；参数无效时返回 0
+ */
+uint16_t Hamming74_Encode(const uint8_t *input, uint16_t num_bytes,
+                          uint8_t *output) {
+    if (input == NULL || output == NULL || num_bytes == 0) {
+        return 0;
+    }
+
+    uint32_t num_nibbles  = (uint32_t)num_bytes * 2;
+    uint16_t output_bytes = (uint16_t)(((uint32_t)num_bytes * 14u + 7u) / 8u);
+
+    /* 清零输出缓冲区 */
+    for (uint16_t i = 0; i < output_bytes; i++) {
+        output[i] = 0;
+    }
+
+    uint32_t out_bit_pos = 0; /* 当前输出比特偏移（MSB first） */
+
+    for (uint32_t n = 0; n < num_nibbles; n++) {
+        /* 提取 nibble：偶数索引取高 4 位，奇数索引取低 4 位 */
+        uint8_t nibble;
+        if ((n & 1u) == 0u) {
+            nibble = (input[n >> 1u] >> 4u) & 0x0Fu;
+        } else {
+            nibble = input[n >> 1u] & 0x0Fu;
+        }
+
+        /* 提取数据位（d1 为最高位，d4 为最低位）*/
+        uint8_t d1 = (nibble >> 3u) & 1u;
+        uint8_t d2 = (nibble >> 2u) & 1u;
+        uint8_t d3 = (nibble >> 1u) & 1u;
+        uint8_t d4 =  nibble        & 1u;
+
+        /* 计算校验位 */
+        uint8_t p1 = d1 ^ d2 ^ d4;
+        uint8_t p2 = d1 ^ d3 ^ d4;
+        uint8_t p3 = d2 ^ d3 ^ d4;
+
+        /* 7 位码字顺序：[p1, p2, d1, p3, d2, d3, d4] */
+        const uint8_t codeword[7] = {p1, p2, d1, p3, d2, d3, d4};
+
+        /* 将 7 位码字按 MSB first 写入输出比特流 */
+        for (uint8_t b = 0; b < 7u; b++) {
+            if (codeword[b]) {
+                output[out_bit_pos >> 3u] |=
+                    (uint8_t)(0x80u >> (out_bit_pos & 7u));
+            }
+            out_bit_pos++;
+        }
+    }
+
+    return output_bytes;
+}
+
 uint16_t Antenna_Switch_Sequence_Generation(uint8_t bytes[], uint16_t num_bytes,
                                             uint8_t codebook_length,
                                             uint8_t preamble_length,

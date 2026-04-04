@@ -371,7 +371,7 @@ void radio_thread_entry(void *parameter) {
 extern TaskHandle_t disp_task_handle;
 uint16_t seq_len;
 uint16_t seq_idx;
-char sec_data[] = {"Hello World!"};
+char sec_data[] = {"Hello!"};
 uint8_t H_size = 4;
 uint8_t *ant_sw_seq = NULL;
 
@@ -408,7 +408,10 @@ void radio_menu_action(void *param) {
             // emit a radio signal
             sprintf(current_menu->subtitle, "Calculating..");
             Update_Menu_Display(current_menu);
-            seq_len = Antenna_Switch_Sequence_Generation((uint8_t *)sec_data, strlen(sec_data), H_size, 8, &ant_sw_seq);
+            uint16_t hamming_output_size = HAMMING74_OUTPUT_SIZE(strlen(sec_data));
+            uint8_t *hamming_output = (uint8_t *)malloc(hamming_output_size);
+            Hamming74_Encode((uint8_t *)sec_data, strlen(sec_data), hamming_output);
+            seq_len = Antenna_Switch_Sequence_Generation(hamming_output, hamming_output_size, H_size, 8, &ant_sw_seq);
 
             sprintf(current_menu->subtitle, "Wait... ");
             Update_Menu_Display(current_menu);
