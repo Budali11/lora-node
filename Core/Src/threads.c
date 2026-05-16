@@ -308,13 +308,13 @@ void disp_thread_entry(void *parameter) {
 #include "lr11xx_hal.h"
 #include "PhaseLoRa.h"
 
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 64 
 #define LORA_SF LR11XX_RADIO_LORA_SF12 
 #define LORA_BW LR11XX_RADIO_LORA_BW_125
 #define IRQ_MASK                                                                          \
     ( LR11XX_SYSTEM_IRQ_TX_DONE | LR11XX_SYSTEM_IRQ_RX_DONE | LR11XX_SYSTEM_IRQ_TIMEOUT | \
       LR11XX_SYSTEM_IRQ_HEADER_ERROR | LR11XX_SYSTEM_IRQ_CRC_ERROR | LR11XX_SYSTEM_IRQ_FSK_LEN_ERROR )
-uint32_t radio_frequency = 866000000;
+uint32_t radio_frequency = 866500000;
 int32_t radio_tx_power = 17;
 uint8_t tx_buffer[BUFFER_SIZE];
 lr11xx_radio_pkt_params_lora_t radio_pkt_param = {
@@ -420,7 +420,7 @@ void radio_menu_action(void *param) {
             ASSERT_LR11XX_RC(lr11xx_radio_set_tx(&lr1121, 0));
 
             taskENTER_CRITICAL();
-            Delayus_Using_TIM(404275);
+            Delayus_Using_TIM(404245);
             HAL_TIM_Base_Start_IT(&htim4);
             taskEXIT_CRITICAL();
             xTaskNotifyWait(0, 0x01, &note, portMAX_DELAY);

@@ -3,6 +3,7 @@
 #include "stm32l4xx_hal_gpio.h"
 #include "stm32l4xx_hal_tim.h"
 #include <stdlib.h>
+#include <string.h>
 
 // BusOut ant_sw(PC_11, PD_2);
 // Ticker fliper;
